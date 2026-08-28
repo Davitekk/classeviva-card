@@ -96,6 +96,12 @@ CDN che memorizza le risorse, aggiungi un numero di versione all'URL della risor
 
 La versione in uso si legge nella console del browser: `CLASSEVIVA-CARD v…`.
 
+## Crediti
+
+Sviluppato da [@Davitekk](https://github.com/Davitekk) con l'assistenza di
+**Claude** (Anthropic), che ha collaborato al reverse engineering del registro
+e alla scrittura del codice.
+
 ## Licenza
 
 [MIT](LICENSE)
