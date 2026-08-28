@@ -1,0 +1,8 @@
+# Nel repository i file restano con fine riga LF, anche committando da Windows:
+# Home Assistant, HACS e le GitHub Actions girano su Linux.
+* text=auto eol=lf
+
+# File binari: nessuna conversione
+*.png binary
+*.jpg binary
+*.pdf binary

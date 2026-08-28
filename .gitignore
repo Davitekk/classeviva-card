@@ -1,0 +1,9 @@
+# credenziali e dati personali: non devono MAI finire nel repo
+config.json
+secrets.yaml
+*.har
+.env
+
+# sistema
+.DS_Store
+Thumbs.db
