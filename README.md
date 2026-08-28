@@ -7,8 +7,8 @@
 <img width="1032" height="336" alt="immagine" src="https://github.com/user-attachments/assets/fb888631-965b-4b5b-a3b4-c4fb1ec85734" />
 
 
-Card Lovelace per l'integrazione [ClasseViva Spaggiari][integrazione-url]: medie, voti,
-bacheca, agenda, annotazioni e scrutini in un'unica plancia.
+Card Lovelace per l'integrazione [ClasseViva Spaggiari][integrazione-url]: Medie, Voti,
+Bacheca, Agenda, Annotazioni e Scrutini in un'unica plancia.
 
 > Richiede l'integrazione [classeviva-ha][integrazione-url] già configurata.
 
@@ -16,15 +16,15 @@ bacheca, agenda, annotazioni e scrutini in un'unica plancia.
 
 | Scheda | Contenuto |
 |---|---|
-| **Medie** | media generale in un anello, linee dei quadrimestri |
-| **Voti** | media e barra per materia, ultimi voti; clic sulla materia per il dettaglio |
-| **Bacheca** | comunicazioni con testo e allegati, filtro "solo da leggere" |
-| **Agenda** | compiti e annotazioni raggruppati per giorno |
-| **Annotazioni** | sottomenù fra annotazioni dei docenti e note disciplinari |
-| **Scrutini** | pagelle e pagellini pubblicati, scaricabili |
+| **Medie** | Media generale in un grafico con quadrimestri |
+| **Voti** | Media e barra per materia, ultimi voti; clic sulla materia per il dettaglio |
+| **Bacheca** | Comunicazioni con testo e allegati, filtro "solo da leggere" |
+| **Agenda** | Compiti e annotazioni raggruppati per giorno |
+| **Annotazioni** | Sottomenù fra annotazioni dei docenti e note disciplinari |
+| **Scrutini** | Pagelle e pagellini pubblicati, scaricabili |
 
-Colore continuo dal rosso al verde in base al voto, animazioni di ingresso, layout che
-si adatta alla larghezza della card e alle schede visibili.
+Colore continuo dal rosso al verde in base al voto, animazioni di ingresso e un layout che
+si adatta alla larghezza della card.
 
 ## Installazione
 
@@ -35,7 +35,7 @@ repository, categoria **Lovelace** → installa.
 
 ### Manuale
 
-1. copia `classeviva-card.js` in `<config>/www/`, ad esempio
+1. Copia `classeviva-card.js` in `<config>/www/`, ad esempio
    `<config>/www/community/classeviva/classeviva-card.js`
 2. *Impostazioni → Dashboard → ⋮ → Risorse → Aggiungi*, tipo **Modulo JavaScript**,
    URL corrispondente al percorso dentro `www/` (che si affaccia su `/local/`):
@@ -55,7 +55,7 @@ Trova da sola le entità dell'integrazione: non serve indicare nessun `entity_id
 |---|---|---|
 | `vista` | `medie`, `voti`, `bacheca`, `agenda`, `note`, `scrutini`, `combo` | `combo` |
 | `account` | parte dell'entity_id, se hai più studenti o più anni | — |
-| `titolo` | testo dell'intestazione (`""` per nasconderla) | nome studente |
+| `titolo` | testo dell'intestazione (`""` per nasconderla) | Nome Studente |
 | `animazioni` | `true` / `false` | `true` |
 | `versione` | `true` mostra la versione della card in fondo | `false` |
 
@@ -89,15 +89,6 @@ type: custom:classeviva-card
 grid_options:
   columns: 12
 ```
-
-## Aggiornamenti e cache
-
-Home Assistant serve i file di `www/` con `Cache-Control` di 31 giorni: dopo aver
-sostituito il file fai **Ctrl+F5**. Se il tuo Home Assistant è dietro un proxy o una
-CDN che memorizza le risorse, aggiungi un numero di versione all'URL della risorsa
-(`?v=2`, `?v=3`, …) oppure escludi `/local/` dalla cache.
-
-La versione in uso si legge nella console del browser: `CLASSEVIVA-CARD v…`.
 
 ## Crediti
 
