@@ -4,6 +4,9 @@
 [![release][release-badge]][release-url]
 [![licenza][license-badge]](LICENSE)
 
+<img width="1032" height="336" alt="immagine" src="https://github.com/user-attachments/assets/fb888631-965b-4b5b-a3b4-c4fb1ec85734" />
+
+
 Card Lovelace per l'integrazione [ClasseViva Spaggiari][integrazione-url]: medie, voti,
 bacheca, agenda, annotazioni e scrutini in un'unica plancia.
 
