@@ -357,11 +357,21 @@ class ClasseVivaCard extends HTMLElement {
     this._hass = hass;
     const scelto = this._selezionaAnno();
     if (!scelto) {
+      if (!this._config.anno_scolastico) {
+        const ent = this._entita();
+        const impronta = JSON.stringify(
+          Object.values(ent).map((e) => (e ? `${e.entity_id}:${e.last_updated}` : "-"))
+        );
+        if (impronta !== this._impronta) {
+          this._impronta = impronta;
+          this._datiEntita = ent;
+          this._disegna(ent);
+        }
+        return;
+      }
       this._impronta = "nessun-anno";
       this._datiEntita = null;
-      this._mostraMessaggio(this._config.voti
-        ? "Il sensore Voti configurato non è disponibile o non indica l'anno scolastico."
-        : "Nessun sensore voti ClasseViva disponibile per questo account.");
+      this._mostraMessaggio("La selezione dell'anno scolastico richiede l'integrazione ClasseViva 3.2.0 o successiva e un sensore Voti con l'anno scolastico.");
       return;
     }
     if (scelto.nonDisponibile) {
@@ -405,9 +415,14 @@ class ClasseVivaCard extends HTMLElement {
     }).catch((err) => {
       if (this._impronta !== impronta) return;
       this._richiesta = null;
+      if (!this._config.anno_scolastico) {
+        this._datiEntita = this._entita();
+        this._disegna(this._datiEntita);
+        return;
+      }
       this._impronta = null;
       console.error("classeviva-card: impossibile caricare i dati dell'anno", err);
-      this._mostraMessaggio("Dati dell'anno non disponibili. Verifica l'integrazione ClasseViva e riprova.");
+      this._mostraMessaggio("La selezione dell'anno scolastico richiede l'integrazione ClasseViva 3.2.0 o successiva.");
     });
   }
 
