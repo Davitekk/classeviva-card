@@ -56,10 +56,17 @@ function annoEtichetta(anno) {
   return `${String(anno % 100).padStart(2, "0")}/${String((anno + 1) % 100).padStart(2, "0")}`;
 }
 
-function anniCard(hass, account) {
+function anniCard(hass, account, voti) {
   if (!hass || !hass.states) return [];
-  const filtro = String(account || "").toLowerCase();
   const anni = new Map();
+  if (voti) {
+    const ent = hass.states[voti];
+    const anno = annoInizio(ent && ent.attributes && ent.attributes.anno);
+    if (anno !== null) anni.set(anno, annoEtichetta(anno));
+    // Senza un filtro studente non possiamo attribuire altri anni allo stesso account.
+    if (!account) return [...anni.entries()].map(([year, etichetta]) => ({ anno: year, etichetta }));
+  }
+  const filtro = String(account || "").toLowerCase();
   Object.entries(hass.states).forEach(([id, ent]) => {
     if (!id.startsWith("sensor.") || !id.includes("classeviva") || !id.includes("voti")) return;
     if (filtro && !id.toLowerCase().includes(filtro)) return;
@@ -352,15 +359,17 @@ class ClasseVivaCard extends HTMLElement {
     if (!scelto) {
       this._impronta = "nessun-anno";
       this._datiEntita = null;
-      this._mostraMessaggio("Nessun sensore voti ClasseViva disponibile per questo account.");
+      this._mostraMessaggio(this._config.voti
+        ? "Il sensore Voti configurato non è disponibile o non indica l'anno scolastico."
+        : "Nessun sensore voti ClasseViva disponibile per questo account.");
       return;
     }
     if (scelto.nonDisponibile) {
       this._impronta = `anno-mancante-${scelto.anno}`;
       this._datiEntita = null;
-      this._mostraMessaggio(
-        `Anno scolastico ${annoEtichetta(scelto.anno)} non configurato in ClasseViva. Aggiungi l'anno nelle opzioni dell'integrazione.`
-      );
+      this._mostraMessaggio(this._config.voti
+        ? `Il sensore Voti configurato non appartiene all'anno ${annoEtichetta(scelto.anno)}. Configura il sensore Voti di quell'anno nella card.`
+        : `Anno scolastico ${annoEtichetta(scelto.anno)} non configurato in ClasseViva. Aggiungi l'anno nelle opzioni dell'integrazione.`);
       return;
     }
 
@@ -406,7 +415,7 @@ class ClasseVivaCard extends HTMLElement {
 
   _selezionaAnno() {
     const config = this._config || {};
-    const anni = anniCard(this._hass, config.account || config.studente);
+    const anni = anniCard(this._hass, config.account || config.studente, config.voti);
     if (!anni.length) return null;
     const target = annoInizio(config.anno_scolastico);
     if (target !== null && !anni.some((item) => item.anno === target)) {
@@ -415,12 +424,10 @@ class ClasseVivaCard extends HTMLElement {
     const selezionato = target === null ? anni[0] : anni.find((item) => item.anno === target);
     const stati = this._hass.states;
     const filtro = String(config.account || config.studente || "").toLowerCase();
-    const esplicita = config.voti && stati[config.voti];
-    let entity = esplicita;
-    if (entity && annoInizio(entity.attributes && entity.attributes.anno) !== selezionato.anno) {
-      entity = null;
-    }
-    if (!entity) {
+    let entity = config.voti &&
+      annoInizio(stati[config.voti] && stati[config.voti].attributes && stati[config.voti].attributes.anno) === selezionato.anno
+      ? stati[config.voti] : null;
+    if (!entity && (!config.voti || filtro)) {
       const id = Object.keys(stati).find((chiave) => {
         const ent = stati[chiave];
         return chiave.startsWith("sensor.") && chiave.includes("classeviva") && chiave.includes("voti") &&
@@ -1165,7 +1172,7 @@ class ClasseVivaCardEditor extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot || !this._config) return;
-    const years = anniCard(this._hass, this._config.account || this._config.studente);
+    const years = anniCard(this._hass, this._config.account || this._config.studente, this._config.voti);
     const current = annoInizio(this._config.anno_scolastico);
     const options = [
       `<option value="">Automatico (anno più recente)</option>`,
@@ -1184,7 +1191,9 @@ class ClasseVivaCardEditor extends HTMLElement {
       </style>
       <label for="anno">Anno scolastico</label>
       <select id="anno" aria-label="Anno scolastico">${options}</select>
-      <p>Disponibilità basata sugli anni configurati nei sensori Voti ClasseViva.</p>`;
+      <p>${this._config.voti
+        ? "L'anno del sensore Voti configurato è sempre disponibile. Gli altri anni richiedono un filtro account o studente."
+        : "Disponibilità basata sugli anni configurati nei sensori Voti ClasseViva."}</p>`;
     this.shadowRoot.querySelector("select").addEventListener("change", (event) => {
       const next = { ...this._config };
       const startYear = event.target.value ? Number(event.target.value) : null;
