@@ -10,7 +10,7 @@
  *      (/local/ corrisponde alla cartella www/)
  *
  * Opzioni comuni:
- *   vista       medie | voti | bacheca | agenda | combo     (default: combo)
+ *   vista       medie | voti | bacheca | agenda | note | scrutini | compiti | combo
  *   account     parte dell'entity_id, se hai piu' studenti
  *   anno_scolastico  anno selezionato, per esempio "26/27"; senza valore usa il più recente
  *   titolo      testo dell'intestazione ("" per nasconderla)
@@ -27,7 +27,7 @@
 
 // Alza questo numero a ogni modifica: compare nella console del browser e
 // serve a capire al volo se la pagina sta usando il file nuovo o quello in cache.
-const VERSIONE = "2.4.0";
+const VERSIONE = "2.5.0";
 
 const VISTE = [
   { id: "medie", nome: "Medie", icona: "◎" },
@@ -36,6 +36,7 @@ const VISTE = [
   { id: "agenda", nome: "Agenda", icona: "▦" },
   { id: "note", nome: "Annotazioni", icona: "✎" },
   { id: "scrutini", nome: "Scrutini", icona: "★" },
+  { id: "compiti", nome: "Compiti", icona: "📝" },
 ];
 
 // Sottomenù della vista Annotazioni.
@@ -339,7 +340,7 @@ class ClasseVivaCard extends HTMLElement {
     const v = this._config.vista;
     if (v && v !== "combo" && !VISTE.some((x) => x.id === v)) {
       throw new Error(
-        `vista "${v}" non valida: usa medie, voti, bacheca, agenda o combo`
+        `vista "${v}" non valida: usa medie, voti, bacheca, agenda, note, scrutini, compiti o combo`
       );
     }
     this._vista = v && v !== "combo" ? v : null;
@@ -524,6 +525,7 @@ class ClasseVivaCard extends HTMLElement {
       agenda: () => this._vistaAgenda(ent),
       note: () => this._vistaNote(ent),
       scrutini: () => this._vistaScrutini(ent),
+      compiti: () => this._vistaAgenda(ent, true),
     };
     const verso =
       this._direzione > 0 ? "da-destra" : this._direzione < 0 ? "da-sinistra" : "";
@@ -1063,9 +1065,14 @@ class ClasseVivaCard extends HTMLElement {
 
   // ---------------------------------------------------------------- agenda
 
-  _vistaAgenda(ent) {
-    const items = this._attr(ent.agenda, "items", []) || [];
-    if (!items.length) return `<div class="vuoto">Nessun evento in agenda.</div>`;
+  _vistaAgenda(ent, soloCompiti = false) {
+    const agenda = this._attr(ent.agenda, "items", []) || [];
+    const items = soloCompiti
+      ? agenda.filter((e) => (e.tipo || "").toLowerCase().startsWith("compiti"))
+      : agenda;
+    if (!items.length) {
+      return `<div class="vuoto">${soloCompiti ? "Nessun compito assegnato per questo anno scolastico." : "Nessun evento in agenda."}</div>`;
+    }
 
     const perGiorno = {};
     items.forEach((e) => {
@@ -1252,7 +1259,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "classeviva-card",
   name: "ClasseViva",
-  description: "Medie, voti, bacheca e agenda del registro ClasseViva",
+  description: "Medie, voti, bacheca, agenda e compiti del registro ClasseViva",
   preview: false,
 });
 

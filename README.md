@@ -8,7 +8,7 @@
 
 
 Card Lovelace per l'integrazione [ClasseViva Spaggiari][integrazione-url]: Medie, Voti,
-Bacheca, Agenda, Annotazioni e Scrutini in un'unica plancia.
+Bacheca, Agenda, Annotazioni, Scrutini e Compiti in un'unica plancia.
 
 > Richiede l'integrazione [classeviva-ha][integrazione-url] già configurata.
 > Per selezionare l'anno scolastico serve la versione 3.2.0 o successiva.
@@ -20,9 +20,10 @@ Bacheca, Agenda, Annotazioni e Scrutini in un'unica plancia.
 | **Medie** | Media generale in un grafico con quadrimestri |
 | **Voti** | Media e barra per materia, ultimi voti; clic sulla materia per il dettaglio |
 | **Bacheca** | Comunicazioni con testo e allegati, filtro "solo da leggere" |
-| **Agenda** | Compiti e annotazioni raggruppati per giorno |
+| **Agenda** | Eventi e annotazioni raggruppati per giorno |
 | **Annotazioni** | Sottomenù fra annotazioni dei docenti e note disciplinari |
 | **Scrutini** | Pagelle e pagellini pubblicati, scaricabili |
+| **📝 Compiti** | Compiti assegnati, raggruppati per giorno |
 
 Colore continuo dal rosso al verde in base al voto, animazioni di ingresso e un layout che
 si adatta alla larghezza della card.
@@ -59,7 +60,7 @@ aumentano gli attributi registrati dei sensori.
 
 | Opzione | Valori | Default |
 |---|---|---|
-| `vista` | `medie`, `voti`, `bacheca`, `agenda`, `note`, `scrutini`, `combo` | `combo` |
+| `vista` | `medie`, `voti`, `bacheca`, `agenda`, `note`, `scrutini`, `compiti`, `combo` | `combo` |
 | `account` | parte dell'entity_id, se hai più studenti | — |
 | `anno_scolastico` | anno configurato, ad esempio `"26/27"` | più recente |
 | `titolo` | testo dell'intestazione (`""` per nasconderla) | Nome Studente |
@@ -84,6 +85,15 @@ vista: medie
 layout: verticale
 dimensione: 190
 ```
+
+Per mostrare solo i compiti assegnati:
+
+```yaml
+type: custom:classeviva-card
+vista: compiti
+```
+
+Con `vista: combo`, la scheda **📝 Compiti** appare dopo **Scrutini**.
 
 Per fissare un anno scolastico:
 
