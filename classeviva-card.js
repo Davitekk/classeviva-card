@@ -373,7 +373,7 @@ class ClasseVivaCard extends HTMLElement {
       return;
     }
 
-    const impronta = `${scelto.entity.entity_id}:${scelto.anno}:${this._improntaStati()}`;
+    const impronta = `${scelto.entity.entity_id}:${scelto.anno}:${this._improntaStati(scelto.entity)}`;
     if (impronta === this._impronta || impronta === this._richiesta) return;
     this._impronta = impronta;
     this._richiesta = impronta;
@@ -388,7 +388,14 @@ class ClasseVivaCard extends HTMLElement {
       this._richiesta = null;
       this._nome = risposta.nome || "";
       this._anno = risposta.anno;
-      this._datiEntita = risposta.entita || {};
+      this._datiEntita = { ...(risposta.entita || {}) };
+      const esplicite = this._entita();
+      for (const chiave of Object.keys(esplicite)) {
+        if (this._config[chiave] && esplicite[chiave]) {
+          const entita = esplicite[chiave];
+          this._datiEntita[chiave] = { ...entita, attributes: { ...entita.attributes } };
+        }
+      }
       const etichetta = risposta.anno ? annoEtichetta(risposta.anno) : "";
       if (etichetta && this._datiEntita.media) {
         this._datiEntita.media.attributes.anno = etichetta;
@@ -403,11 +410,18 @@ class ClasseVivaCard extends HTMLElement {
     });
   }
 
-  _improntaStati() {
+  _improntaStati(selezionata) {
     const config = this._config || {};
     const filtro = String(config.account || config.studente || "").toLowerCase();
-    return Object.entries(this._hass.states)
+    const stati = this._hass.states;
+    const rilevanti = new Map(Object.entries(stati)
       .filter(([id]) => id.startsWith("sensor.") && id.includes("classeviva") && (!filtro || id.toLowerCase().includes(filtro)))
+    );
+    if (selezionata) rilevanti.set(selezionata.entity_id, selezionata);
+    for (const chiave of Object.keys(this._entita())) {
+      if (config[chiave] && stati[config[chiave]]) rilevanti.set(config[chiave], stati[config[chiave]]);
+    }
+    return [...rilevanti.entries()]
       .map(([id, ent]) => `${id}:${ent.last_updated}`)
       .sort()
       .join("|");
