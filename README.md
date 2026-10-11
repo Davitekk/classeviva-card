@@ -11,6 +11,7 @@ Card Lovelace per l'integrazione [ClasseViva Spaggiari][integrazione-url]: Medie
 Bacheca, Agenda, Annotazioni e Scrutini in un'unica plancia.
 
 > Richiede l'integrazione [classeviva-ha][integrazione-url] già configurata.
+> Per selezionare l'anno scolastico serve la versione 3.2.0 o successiva.
 
 ## Cosa mostra
 
@@ -48,13 +49,19 @@ type: custom:classeviva-card
 ```
 
 Trova da sola le entità dell'integrazione: non serve indicare nessun `entity_id`.
+Per scegliere l'anno, usa `anno_scolastico`; l'editor della card propone gli anni
+disponibili nelle istanze configurate dell'integrazione. Senza l'opzione, usa l'anno
+più recente disponibile. L'intervallo mostrato va dal 1° settembre al 31 agosto
+compreso. I dati completi sono richiesti all'integrazione via WebSocket e non
+aumentano gli attributi registrati dei sensori.
 
 ### Opzioni
 
 | Opzione | Valori | Default |
 |---|---|---|
 | `vista` | `medie`, `voti`, `bacheca`, `agenda`, `note`, `scrutini`, `combo` | `combo` |
-| `account` | parte dell'entity_id, se hai più studenti o più anni | — |
+| `account` | parte dell'entity_id, se hai più studenti | — |
+| `anno_scolastico` | anno configurato, ad esempio `"26/27"` | più recente |
 | `titolo` | testo dell'intestazione (`""` per nasconderla) | Nome Studente |
 | `animazioni` | `true` / `false` | `true` |
 | `versione` | `true` mostra la versione della card in fondo | `false` |
@@ -76,6 +83,13 @@ type: custom:classeviva-card
 vista: medie
 layout: verticale
 dimensione: 190
+```
+
+Per fissare un anno scolastico:
+
+```yaml
+type: custom:classeviva-card
+anno_scolastico: "26/27"
 ```
 
 ### Larghezza

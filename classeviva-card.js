@@ -11,7 +11,8 @@
  *
  * Opzioni comuni:
  *   vista       medie | voti | bacheca | agenda | combo     (default: combo)
- *   account     parte dell'entity_id, se hai piu' studenti o piu' anni
+ *   account     parte dell'entity_id, se hai piu' studenti
+ *   anno_scolastico  anno selezionato, per esempio "26/27"; senza valore usa il più recente
  *   titolo      testo dell'intestazione ("" per nasconderla)
  *   animazioni  true | false                                (default: true)
  *
@@ -26,7 +27,7 @@
 
 // Alza questo numero a ogni modifica: compare nella console del browser e
 // serve a capire al volo se la pagina sta usando il file nuovo o quello in cache.
-const VERSIONE = "2.3.1";
+const VERSIONE = "2.4.0";
 
 const VISTE = [
   { id: "medie", nome: "Medie", icona: "◎" },
@@ -42,6 +43,40 @@ const SOTTO_NOTE = [
   { id: "annotazione", nome: "Annotazioni" },
   { id: "disciplinare", nome: "Note disciplinari" },
 ];
+
+function annoInizio(valore) {
+  const numeri = String(valore || "").match(/\d+/g);
+  if (!numeri) return null;
+  let anno = parseInt(numeri[0], 10);
+  if (numeri[0].length <= 2) anno += 2000;
+  return anno >= 2000 && anno <= 2099 ? anno : null;
+}
+
+function annoEtichetta(anno) {
+  return `${String(anno % 100).padStart(2, "0")}/${String((anno + 1) % 100).padStart(2, "0")}`;
+}
+
+function anniCard(hass, account, voti) {
+  if (!hass || !hass.states) return [];
+  const anni = new Map();
+  if (voti) {
+    const ent = hass.states[voti];
+    const anno = annoInizio(ent && ent.attributes && ent.attributes.anno);
+    if (anno !== null) anni.set(anno, annoEtichetta(anno));
+    // Senza un filtro studente non possiamo attribuire altri anni allo stesso account.
+    if (!account) return [...anni.entries()].map(([year, etichetta]) => ({ anno: year, etichetta }));
+  }
+  const filtro = String(account || "").toLowerCase();
+  Object.entries(hass.states).forEach(([id, ent]) => {
+    if (!id.startsWith("sensor.") || !id.includes("classeviva") || !id.includes("voti")) return;
+    if (filtro && !id.toLowerCase().includes(filtro)) return;
+    const anno = annoInizio(ent.attributes && ent.attributes.anno);
+    if (anno !== null) anni.set(anno, annoEtichetta(anno));
+  });
+  return [...anni.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([anno, etichetta]) => ({ anno, etichetta }));
+}
 
 // Scala di colore continua: rosso sotto il 5, ambra verso il 6, verde sopra.
 const SCALA = [
@@ -294,6 +329,9 @@ class ClasseVivaCard extends HTMLElement {
     this._direzione = 0;
     this._soloNonLette = false;
     this._sottoNota = null;
+    this._datiEntita = null;
+    this._nome = "";
+    this._richiesta = null;
   }
 
   setConfig(config) {
@@ -306,6 +344,9 @@ class ClasseVivaCard extends HTMLElement {
     }
     this._vista = v && v !== "combo" ? v : null;
     this._impronta = null;
+    this._datiEntita = null;
+    this._richiesta = null;
+    this._nome = "";
   }
 
   getCardSize() {
@@ -314,16 +355,126 @@ class ClasseVivaCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    const ent = this._entita();
-    // Ridisegna solo quando i dati cambiano davvero: senza questo controllo ogni
-    // aggiornamento di stato di Home Assistant rifarebbe partire le animazioni.
-    const impronta = JSON.stringify(
-      Object.values(ent).map((e) => (e ? `${e.entity_id}:${e.last_updated}` : "-"))
-    );
-    if (impronta !== this._impronta) {
-      this._impronta = impronta;
-      this._disegna(ent);
+    const scelto = this._selezionaAnno();
+    if (!scelto) {
+      if (!this._config.anno_scolastico) {
+        const ent = this._entita();
+        const impronta = JSON.stringify(
+          Object.values(ent).map((e) => (e ? `${e.entity_id}:${e.last_updated}` : "-"))
+        );
+        if (impronta !== this._impronta) {
+          this._impronta = impronta;
+          this._datiEntita = ent;
+          this._disegna(ent);
+        }
+        return;
+      }
+      this._impronta = "nessun-anno";
+      this._datiEntita = null;
+      this._mostraMessaggio("La selezione dell'anno scolastico richiede l'integrazione ClasseViva 3.2.0 o successiva e un sensore Voti con l'anno scolastico.");
+      return;
     }
+    if (scelto.nonDisponibile) {
+      this._impronta = `anno-mancante-${scelto.anno}`;
+      this._datiEntita = null;
+      this._mostraMessaggio(this._config.voti
+        ? `Il sensore Voti configurato non appartiene all'anno ${annoEtichetta(scelto.anno)}. Configura il sensore Voti di quell'anno nella card.`
+        : `Anno scolastico ${annoEtichetta(scelto.anno)} non configurato in ClasseViva. Aggiungi l'anno nelle opzioni dell'integrazione.`);
+      return;
+    }
+
+    const impronta = `${scelto.entity.entity_id}:${scelto.anno}:${this._improntaStati(scelto.entity)}`;
+    if (impronta === this._impronta || impronta === this._richiesta) return;
+    this._impronta = impronta;
+    this._richiesta = impronta;
+    this._datiEntita = null;
+    this._mostraMessaggio(`Caricamento anno scolastico ${annoEtichetta(scelto.anno)}…`);
+
+    hass.callWS({
+      type: "classeviva/card_data",
+      entity_id: scelto.entity.entity_id,
+    }).then((risposta) => {
+      if (this._impronta !== impronta) return;
+      this._richiesta = null;
+      this._nome = risposta.nome || "";
+      this._anno = risposta.anno;
+      this._datiEntita = { ...(risposta.entita || {}) };
+      const esplicite = this._entita();
+      for (const chiave of Object.keys(esplicite)) {
+        if (this._config[chiave] && esplicite[chiave] &&
+            annoInizio(esplicite[chiave].attributes && esplicite[chiave].attributes.anno) === scelto.anno) {
+          const entita = esplicite[chiave];
+          this._datiEntita[chiave] = { ...entita, attributes: { ...entita.attributes } };
+        }
+      }
+      const etichetta = risposta.anno ? annoEtichetta(risposta.anno) : "";
+      if (etichetta && this._datiEntita.media) {
+        this._datiEntita.media.attributes.anno = etichetta;
+      }
+      this._disegna(this._datiEntita);
+    }).catch((err) => {
+      if (this._impronta !== impronta) return;
+      this._richiesta = null;
+      if (err && err.code === "unknown_command") {
+        if (!this._config.anno_scolastico) {
+          this._datiEntita = this._entita();
+          this._disegna(this._datiEntita);
+        } else {
+          this._mostraMessaggio("La selezione dell'anno scolastico richiede l'integrazione ClasseViva 3.2.0 o successiva.");
+        }
+        return;
+      }
+      this._impronta = null;
+      console.error("classeviva-card: impossibile caricare i dati dell'anno", err);
+      this._mostraMessaggio("Dati dell'anno non disponibili. Verifica l'integrazione ClasseViva e riprova.");
+    });
+  }
+
+  _improntaStati(selezionata) {
+    const config = this._config || {};
+    const filtro = String(config.account || config.studente || "").toLowerCase();
+    const stati = this._hass.states;
+    const rilevanti = new Map(Object.entries(stati)
+      .filter(([id]) => id.startsWith("sensor.") && id.includes("classeviva") && (!filtro || id.toLowerCase().includes(filtro)))
+    );
+    if (selezionata) rilevanti.set(selezionata.entity_id, selezionata);
+    for (const chiave of Object.keys(this._entita())) {
+      if (config[chiave] && stati[config[chiave]]) rilevanti.set(config[chiave], stati[config[chiave]]);
+    }
+    return [...rilevanti.entries()]
+      .map(([id, ent]) => `${id}:${ent.last_updated}`)
+      .sort()
+      .join("|");
+  }
+
+  _selezionaAnno() {
+    const config = this._config || {};
+    const anni = anniCard(this._hass, config.account || config.studente, config.voti);
+    if (!anni.length) return null;
+    const target = annoInizio(config.anno_scolastico);
+    if (target !== null && !anni.some((item) => item.anno === target)) {
+      return { anno: target, nonDisponibile: true };
+    }
+    const selezionato = target === null ? anni[0] : anni.find((item) => item.anno === target);
+    const stati = this._hass.states;
+    const filtro = String(config.account || config.studente || "").toLowerCase();
+    let entity = config.voti &&
+      annoInizio(stati[config.voti] && stati[config.voti].attributes && stati[config.voti].attributes.anno) === selezionato.anno
+      ? stati[config.voti] : null;
+    if (!entity && (!config.voti || filtro)) {
+      const id = Object.keys(stati).find((chiave) => {
+        const ent = stati[chiave];
+        return chiave.startsWith("sensor.") && chiave.includes("classeviva") && chiave.includes("voti") &&
+          (!filtro || chiave.toLowerCase().includes(filtro)) &&
+          annoInizio(ent.attributes && ent.attributes.anno) === selezionato.anno;
+      });
+      entity = id ? stati[id] : null;
+    }
+    return entity ? { entity, anno: selezionato.anno } : { anno: selezionato.anno, nonDisponibile: true };
+  }
+
+  _mostraMessaggio(testo) {
+    this.shadowRoot.innerHTML = `<style>${STILE}</style><div class="cvv"><div class="vuoto" role="status">${this._esc(testo)}</div></div>`;
   }
 
   /** Trova le entità dell'integrazione, filtrando per `account` se indicato. */
@@ -413,7 +564,7 @@ class ClasseVivaCard extends HTMLElement {
         const dopo = viste.findIndex((v) => v.id === b.dataset.vista);
         this._direzione = dopo > prima ? 1 : -1;
         this._vista = b.dataset.vista;
-        this._disegna(this._entita());
+        this._disegna(this._datiEntita || this._entita());
       })
     );
     this.shadowRoot.querySelectorAll("[data-espandi]").forEach((b) =>
@@ -437,7 +588,7 @@ class ClasseVivaCard extends HTMLElement {
       b.addEventListener("click", () => {
         this._soloNonLette = !this._soloNonLette;
         this._direzione = 0;
-        this._disegna(this._entita());
+        this._disegna(this._datiEntita || this._entita());
       })
     );
     this.shadowRoot.querySelectorAll("[data-sotto]").forEach((b) =>
@@ -445,7 +596,7 @@ class ClasseVivaCard extends HTMLElement {
         if (b.dataset.sotto === this._sottoNota) return;
         this._sottoNota = b.dataset.sotto;
         this._direzione = 0;
-        this._disegna(this._entita());
+        this._disegna(this._datiEntita || this._entita());
       })
     );
     this.shadowRoot.querySelectorAll("[data-azione]").forEach((b) =>
@@ -570,6 +721,7 @@ class ClasseVivaCard extends HTMLElement {
   }
 
   _nomeStudente(ent) {
+    if (this._nome) return this._nome;
     const e = ent.media || ent.voti || ent.bacheca || ent.agenda;
     if (!e) return "ClasseViva";
     const nome = (e.attributes.friendly_name || "").replace(
@@ -1035,7 +1187,66 @@ class ClasseVivaCard extends HTMLElement {
   }
 }
 
+class ClasseVivaCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this._config = {};
+  }
+
+  setConfig(config) {
+    this._config = { ...(config || {}) };
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  _render() {
+    if (!this.shadowRoot || !this._config) return;
+    const years = anniCard(this._hass, this._config.account || this._config.studente, this._config.voti);
+    const current = annoInizio(this._config.anno_scolastico);
+    const options = [
+      `<option value="">Automatico (anno più recente)</option>`,
+      ...years.map(({ anno, etichetta }) =>
+        `<option value="${anno}" ${anno === current ? "selected" : ""}>${etichetta}</option>`
+      ),
+    ].join("");
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; color: var(--primary-text-color); }
+        label { display: block; font-size: .9rem; margin-bottom: 6px; }
+        select { box-sizing: border-box; width: 100%; min-height: 42px; padding: 8px 12px;
+          border: 1px solid var(--input-outlined-idle-border-color, var(--divider-color));
+          border-radius: 8px; background: var(--card-background-color); color: inherit; font: inherit; }
+        p { margin: 8px 0 0; color: var(--secondary-text-color); font-size: .8rem; }
+      </style>
+      <label for="anno">Anno scolastico</label>
+      <select id="anno" aria-label="Anno scolastico">${options}</select>
+      <p>${this._config.voti
+        ? "L'anno del sensore Voti configurato è sempre disponibile. Gli altri anni richiedono un filtro account o studente."
+        : "Disponibilità basata sugli anni configurati nei sensori Voti ClasseViva."}</p>`;
+    this.shadowRoot.querySelector("select").addEventListener("change", (event) => {
+      const next = { ...this._config };
+      const startYear = event.target.value ? Number(event.target.value) : null;
+      if (startYear) next.anno_scolastico = annoEtichetta(startYear);
+      else delete next.anno_scolastico;
+      this._config = next;
+      this.dispatchEvent(new CustomEvent("config-changed", {
+        bubbles: true,
+        composed: true,
+        detail: { config: next },
+      }));
+    });
+  }
+}
+
+ClasseVivaCard.getConfigElement = () => document.createElement("classeviva-card-editor");
+
 customElements.define("classeviva-card", ClasseVivaCard);
+customElements.define("classeviva-card-editor", ClasseVivaCardEditor);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
