@@ -415,14 +415,18 @@ class ClasseVivaCard extends HTMLElement {
     }).catch((err) => {
       if (this._impronta !== impronta) return;
       this._richiesta = null;
-      if (!this._config.anno_scolastico) {
-        this._datiEntita = this._entita();
-        this._disegna(this._datiEntita);
+      if (err && err.code === "unknown_command") {
+        if (!this._config.anno_scolastico) {
+          this._datiEntita = this._entita();
+          this._disegna(this._datiEntita);
+        } else {
+          this._mostraMessaggio("La selezione dell'anno scolastico richiede l'integrazione ClasseViva 3.2.0 o successiva.");
+        }
         return;
       }
       this._impronta = null;
       console.error("classeviva-card: impossibile caricare i dati dell'anno", err);
-      this._mostraMessaggio("La selezione dell'anno scolastico richiede l'integrazione ClasseViva 3.2.0 o successiva.");
+      this._mostraMessaggio("Dati dell'anno non disponibili. Verifica l'integrazione ClasseViva e riprova.");
     });
   }
 
