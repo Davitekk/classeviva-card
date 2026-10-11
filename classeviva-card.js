@@ -391,7 +391,8 @@ class ClasseVivaCard extends HTMLElement {
       this._datiEntita = { ...(risposta.entita || {}) };
       const esplicite = this._entita();
       for (const chiave of Object.keys(esplicite)) {
-        if (this._config[chiave] && esplicite[chiave]) {
+        if (this._config[chiave] && esplicite[chiave] &&
+            annoInizio(esplicite[chiave].attributes && esplicite[chiave].attributes.anno) === scelto.anno) {
           const entita = esplicite[chiave];
           this._datiEntita[chiave] = { ...entita, attributes: { ...entita.attributes } };
         }
