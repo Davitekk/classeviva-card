@@ -8,6 +8,6 @@ secrets.yaml
 .DS_Store
 Thumbs.db
 
-# strumenti locali dell assistente: non vanno nel repo
+# file locali di lavoro: non vanno nel repo
 .claude/
 CLAUDE.md
