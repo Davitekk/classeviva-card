@@ -28,7 +28,7 @@
  * Pagina per il menu laterale (panel_custom, elemento classeviva-card-panel):
  *   accetta le opzioni della card sotto `config`, piu':
  *   studenti    elenco di account da mostrare, nell'ordine indicato   (default: tutti)
- *               ogni voce e' un account ("matteo") oppure { account, nome }
+ *               ogni voce e' un account ("luca") oppure { account, nome }
  */
 
 // Alza questo numero a ogni modifica: compare nella console del browser e

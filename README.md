@@ -77,9 +77,9 @@ da mostrare, nell'ordine indicato. Ogni voce è un account oppure una coppia
 
 ```yaml
 studenti:
-  - veronica
-  - account: matteo
-    nome: Matte
+  - anna
+  - account: luca
+    nome: Lu
 ```
 
 Senza `studenti` compaiono tutti, in ordine alfabetico.
