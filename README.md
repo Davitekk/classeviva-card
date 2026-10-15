@@ -19,7 +19,7 @@ Bacheca, Agenda, Annotazioni, Scrutini e Compiti in un'unica plancia.
 |---|---|
 | **Medie** | Media generale in un grafico con quadrimestri |
 | **Voti** | Cerchio con la media generale (scala da 0 a `massimo`), barra per materia, ultimi voti; clic sulla materia per il dettaglio |
-| **Bacheca** | Comunicazioni con testo e allegati, filtro "solo da leggere" |
+| **Bacheca** | Comunicazioni con testo e allegati, filtro "solo da leggere"; se il testo arriva come HTML viene mostrato formattato (link in una nuova scheda, senza script) |
 | **Agenda** | Eventi e annotazioni raggruppati per giorno |
 | **Annotazioni** | Sottomenù fra annotazioni dei docenti e note disciplinari |
 | **Scrutini** | Pagelle e pagellini pubblicati, scaricabili |
@@ -54,7 +54,7 @@ panel_custom:
     url_path: classeviva
     sidebar_title: ClasseViva
     sidebar_icon: mdi:school
-    module_url: /hacsfiles/classeviva-card/classeviva-card.js?v=2.6.2
+    module_url: /hacsfiles/classeviva-card/classeviva-card.js?v=2.7.0
     config:
       vista: combo
       anno_scolastico: "26/27"

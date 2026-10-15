@@ -33,7 +33,7 @@
 
 // Alza questo numero a ogni modifica: compare nella console del browser e
 // serve a capire al volo se la pagina sta usando il file nuovo o quello in cache.
-const VERSIONE = "2.6.2";
+const VERSIONE = "2.7.0";
 
 const VISTE = [
   { id: "medie", nome: "Medie", icona: "◎" },
@@ -240,6 +240,8 @@ const STILE = `
   .com .data { font-size: .74rem; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
   .com .testo { font-size: .87rem; color: var(--secondary-text-color); margin-top: 7px;
                 white-space: pre-wrap; line-height: 1.45; }
+  .com .testo strong { color: var(--primary-text-color); font-weight: 600; }
+  .com .testo a { color: var(--primary-color); }
   /* niente pre-wrap: è testo scritto dalla card, non contenuto del registro */
   .com .avviso { font-size: .8rem; color: var(--secondary-text-color); margin-top: 7px;
                  line-height: 1.4; opacity: .85; }
@@ -585,7 +587,10 @@ class ClasseVivaCard extends HTMLElement {
         const box = b.closest(".com");
         const testo = box && box.querySelector(".testo");
         if (testo) {
-          testo.textContent = aperto ? testo.dataset.corto : testo.dataset.lungo;
+          if (aperto) testo.textContent = testo.dataset.corto;
+          // data-html è HTML ricostruito da _comunicazioneHtml, non quello del registro
+          else if (testo.dataset.html !== undefined) testo.innerHTML = testo.dataset.html;
+          else testo.textContent = testo.dataset.lungo;
           b.textContent = aperto ? "Leggi tutto" : "Riduci";
         }
       })
@@ -655,7 +660,9 @@ class ClasseVivaCard extends HTMLElement {
           if (testo && box) {
             const div = document.createElement("div");
             div.className = "testo";
-            div.textContent = testo;
+            const ricco = this._comunicazioneHtml(testo);
+            if (ricco) div.innerHTML = ricco.html;
+            else div.textContent = testo;
             box.insertBefore(div, b);
             b.remove();
           } else {
@@ -941,7 +948,8 @@ class ClasseVivaCard extends HTMLElement {
     const riga = (c, i) => {
       const chiave = String(c.pub_id || i);
       const aperto = this._espansi.has(chiave);
-      const testo = c.testo || "";
+      const ricco = this._comunicazioneHtml(c.testo);
+      const testo = ricco ? ricco.piano : c.testo || "";
       const lungo = testo.length > 180 || c.troncato;
       const corto = lungo ? testo.slice(0, 180) + "…" : testo;
       return `<div class="com ${c.letto ? "" : "nuova"}" style="--ritardo:${Math.min(
@@ -958,7 +966,9 @@ class ClasseVivaCard extends HTMLElement {
           testo
             ? `<div class="testo" data-corto="${this._esc(corto)}" data-lungo="${this._esc(
                 testo
-              )}">${this._esc(aperto ? testo : corto)}</div>`
+              )}"${ricco ? ` data-html="${this._esc(ricco.html)}"` : ""}>${
+                aperto && ricco ? ricco.html : this._esc(aperto ? testo : corto)
+              }</div>`
             : ""
         }
         ${
@@ -1204,6 +1214,53 @@ class ClasseVivaCard extends HTMLElement {
       /[&<>"']/g,
       (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
     );
+  }
+
+  /**
+   * Alcune comunicazioni arrivano dal registro come HTML non interpretato.
+   * Se il testo comincia con un tag lo si converte in un testo formattato;
+   * gli altri restano com'erano. Ritorna { html, piano } oppure null.
+   *
+   * Il risultato è ricostruito da zero: del codice originale restano solo il
+   * testo (escapato), il grassetto, il corsivo, gli a capo, gli elenchi e i
+   * link http/https. Script, stili, attributi e link javascript: spariscono.
+   */
+  _comunicazioneHtml(testo) {
+    if (!/^\s*<(?:!doctype\b|[a-z][a-z0-9-]*[\s/>])/i.test(String(testo || ""))) return null;
+    const doc = new DOMParser().parseFromString(String(testo), "text/html");
+    doc.querySelectorAll("script, style, template, iframe, object, embed, noscript").forEach((n) => n.remove());
+    const blocchi = new Set(["DIV", "P", "UL", "OL", "LI", "TABLE", "TR", "SECTION",
+      "ARTICLE", "HEADER", "FOOTER", "BLOCKQUOTE", "H1", "H2", "H3", "H4", "H5", "H6"]);
+    const vai = (nodo) => {
+      if (nodo.nodeType === Node.TEXT_NODE) return this._esc(nodo.nodeValue.replace(/\s+/g, " "));
+      if (nodo.nodeType !== Node.ELEMENT_NODE) return "";
+      const tag = nodo.tagName;
+      if (tag === "BR") return "\n";
+      let dentro = [...nodo.childNodes].map(vai).join("");
+      if (tag === "STRONG" || tag === "B" || /^H[1-6]$/.test(tag)) dentro = `<strong>${dentro}</strong>`;
+      else if (tag === "EM" || tag === "I") dentro = `<em>${dentro}</em>`;
+      else if (tag === "LI") dentro = `• ${dentro}`;
+      else if (tag === "A") {
+        const href = nodo.getAttribute("href");
+        if (!href) return dentro;
+        let url = null;
+        try {
+          const u = new URL(href, "https://web.spaggiari.eu/");
+          if (u.protocol === "https:" || u.protocol === "http:") url = u.href;
+          else if (u.protocol !== "mailto:") return "";  // javascript:, data: ... non servono qui
+        } catch (e) {
+          return dentro;
+        }
+        if (url) dentro = `<a href="${this._esc(url)}" target="_blank" rel="noopener noreferrer">${dentro}</a>`;
+      }
+      return blocchi.has(tag) ? `\n${dentro}\n` : dentro;
+    };
+    const html = vai(doc.body)
+      .replace(/[ \t]*\n[ \t]*/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    const piano = new DOMParser().parseFromString(html, "text/html").body.textContent;
+    return html ? { html, piano } : null;
   }
 }
 
