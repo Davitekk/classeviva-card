@@ -28,11 +28,12 @@
  * Pagina per il menu laterale (panel_custom, elemento classeviva-card-panel):
  *   accetta le opzioni della card sotto `config`, piu':
  *   studenti    elenco di account da mostrare, nell'ordine indicato   (default: tutti)
+ *               ogni voce e' un account ("matteo") oppure { account, nome }
  */
 
 // Alza questo numero a ogni modifica: compare nella console del browser e
 // serve a capire al volo se la pagina sta usando il file nuovo o quello in cache.
-const VERSIONE = "2.6.1";
+const VERSIONE = "2.6.2";
 
 const VISTE = [
   { id: "medie", nome: "Medie", icona: "◎" },
@@ -1276,6 +1277,7 @@ class ClasseVivaCardPanel extends HTMLElement {
     this._narrow = false;
     this._card = null;
     this._studenti = [];
+    this._nomi = {};
     this._scelto = null;
     this._chiaveCard = null;
   }
@@ -1296,14 +1298,18 @@ class ClasseVivaCardPanel extends HTMLElement {
                   font-size: 1.4rem; line-height: 1; padding: 8px 10px; border-radius: 8px; }
           .menu:hover { background: var(--secondary-background-color); }
           :host([narrow]) .menu { display: block; }
-          .titolo { font-size: 1.15rem; font-weight: 500; margin: 0 12px 0 4px; white-space: nowrap; }
           .studenti { display: flex; gap: 2px; height: 100%; }
-          .studente { position: relative; background: none; border: none; color: var(--secondary-text-color);
-                      cursor: pointer; padding: 0 16px; font: inherit; font-size: .95rem; white-space: nowrap;
+          .studente { position: relative; display: flex; align-items: center; gap: 10px; background: none;
+                      border: none; color: var(--secondary-text-color); cursor: pointer; padding: 0 18px;
+                      font: inherit; font-size: 1rem; white-space: nowrap;
                       transition: color .22s ease, background .22s ease; }
           .studente:hover { color: var(--primary-text-color); background: var(--secondary-background-color); }
           .studente.attivo { color: var(--primary-color); font-weight: 500; }
-          .studente.attivo::after { content: ""; position: absolute; left: 16px; right: 16px; bottom: 0;
+          .studente .iniziale { display: inline-flex; align-items: center; justify-content: center;
+                                width: 28px; height: 28px; border-radius: 50%; font-size: .85rem;
+                                font-weight: 600; background: var(--divider-color); color: inherit; }
+          .studente.attivo .iniziale { background: var(--primary-color); color: var(--text-primary-color, #fff); }
+          .studente.attivo::after { content: ""; position: absolute; left: 18px; right: 18px; bottom: 0;
                                     height: 3px; background: var(--primary-color); border-radius: 3px 3px 0 0; }
           .contenuto { padding: 16px; box-sizing: border-box; }
           classeviva-card { display: block; width: 100%; }
@@ -1311,7 +1317,6 @@ class ClasseVivaCardPanel extends HTMLElement {
         </style>
         <div class="barra">
           <button class="menu" type="button" aria-label="Menu">☰</button>
-          <h1 class="titolo">ClasseViva</h1>
           <div class="studenti" role="tablist"></div>
         </div>
         <div class="contenuto"></div>`;
@@ -1356,13 +1361,19 @@ class ClasseVivaCardPanel extends HTMLElement {
       if (m) trovati.add(m[1]);
     }
     const scelti = this._config.studenti;
+    this._nomi = {};
     if (Array.isArray(scelti) && scelti.length) {
-      return scelti.map((s) => String(s).toLowerCase()).filter((s) => trovati.has(s));
+      const voluti = scelti.map((s) => (s && typeof s === "object"
+        ? { account: String(s.account || "").toLowerCase(), nome: s.nome }
+        : { account: String(s).toLowerCase() }));
+      for (const v of voluti) if (v.nome) this._nomi[v.account] = String(v.nome);
+      return voluti.map((v) => v.account).filter((a) => trovati.has(a));
     }
     return [...trovati].sort();
   }
 
   _etichetta(slug) {
+    if (this._nomi[slug]) return this._nomi[slug];
     return slug.split("_").map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
   }
 
@@ -1413,7 +1424,11 @@ class ClasseVivaCardPanel extends HTMLElement {
       b.className = "studente";
       b.dataset.studente = slug;
       b.setAttribute("role", "tab");
-      b.textContent = this._etichetta(slug);
+      const nome = this._etichetta(slug);
+      const iniziale = document.createElement("span");
+      iniziale.className = "iniziale";
+      iniziale.textContent = nome.charAt(0).toUpperCase();
+      b.append(iniziale, nome);
       return b;
     }));
     this._segnaAttivo();

@@ -54,7 +54,7 @@ panel_custom:
     url_path: classeviva
     sidebar_title: ClasseViva
     sidebar_icon: mdi:school
-    module_url: /hacsfiles/classeviva-card/classeviva-card.js
+    module_url: /hacsfiles/classeviva-card/classeviva-card.js?v=2.6.2
     config:
       vista: combo
       anno_scolastico: "26/27"
@@ -64,13 +64,25 @@ panel_custom:
 Se hai installato la card manualmente, sostituisci `module_url` con lo stesso URL
 che hai registrato nelle risorse della dashboard, ad esempio
 `/local/community/classeviva/classeviva-card.js`. Riavvia Home Assistant dopo aver
-salvato la configurazione.
+salvato la configurazione. Home Assistant tiene in cache il file per un mese: dopo
+ogni aggiornamento della card cambia il numero dopo `?v=` (e riavvia), altrimenti il
+browser continua a usare la versione vecchia.
 
-La pagina ha in alto un pulsante per ogni studente configurato nell'integrazione
-(trovati dai sensori Voti) e sotto la card dello studente scelto; la scelta viene
-ricordata dal browser. Sotto `config` valgono le normali opzioni della card, più
-`studenti`: l'elenco degli account da mostrare, nell'ordine indicato (per esempio
-`studenti: [veronica, matteo]`). Senza `studenti` compaiono tutti, in ordine alfabetico.
+In cima alla pagina c'è una riga con una voce per ogni studente configurato
+nell'integrazione (trovati dai sensori Voti), come nelle pagine a più viste; sotto
+compare la card dello studente scelto e la scelta viene ricordata dal browser. Sotto
+`config` valgono le normali opzioni della card, più `studenti`: l'elenco degli account
+da mostrare, nell'ordine indicato. Ogni voce è un account oppure una coppia
+`account` e `nome` per cambiare il nome mostrato:
+
+```yaml
+studenti:
+  - veronica
+  - account: matteo
+    nome: Matte
+```
+
+Senza `studenti` compaiono tutti, in ordine alfabetico.
 
 ## Uso
 
