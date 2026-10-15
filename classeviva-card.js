@@ -10,7 +10,7 @@
  *      (/local/ corrisponde alla cartella www/)
  *
  * Opzioni comuni:
- *   vista       medie | voti | bacheca | agenda | combo     (default: combo)
+ *   vista       medie | voti | bacheca | agenda | note | scrutini | compiti | combo
  *   account     parte dell'entity_id, se hai piu' studenti
  *   anno_scolastico  anno selezionato, per esempio "26/27"; senza valore usa il più recente
  *   titolo      testo dell'intestazione ("" per nasconderla)
@@ -23,11 +23,17 @@
  *   dimensione  diametro del cerchio in px                  (default: 170)
  *   periodi     true | false, le linee dei quadrimestri     (default: true)
  *   massimo     voto massimo della scala                    (default: 10)
+ *               (vale anche per il cerchio della vista voti)
+ *
+ * Pagina per il menu laterale (panel_custom, elemento classeviva-card-panel):
+ *   accetta le opzioni della card sotto `config`, piu':
+ *   studenti    elenco di account da mostrare, nell'ordine indicato   (default: tutti)
+ *               ogni voce e' un account ("luca") oppure { account, nome }
  */
 
 // Alza questo numero a ogni modifica: compare nella console del browser e
 // serve a capire al volo se la pagina sta usando il file nuovo o quello in cache.
-const VERSIONE = "2.4.0";
+const VERSIONE = "2.7.0";
 
 const VISTE = [
   { id: "medie", nome: "Medie", icona: "◎" },
@@ -36,6 +42,7 @@ const VISTE = [
   { id: "agenda", nome: "Agenda", icona: "▦" },
   { id: "note", nome: "Annotazioni", icona: "✎" },
   { id: "scrutini", nome: "Scrutini", icona: "★" },
+  { id: "compiti", nome: "Compiti", icona: "📝" },
 ];
 
 // Sottomenù della vista Annotazioni.
@@ -197,9 +204,10 @@ const STILE = `
   @keyframes cresci { from { width: 0; } }
 
   /* ---------- voti ---------- */
-  .sommario { display: flex; align-items: baseline; gap: 10px; margin-bottom: 18px; }
-  .sommario .n { font-size: 2.4rem; font-weight: 200; line-height: 1; letter-spacing: -1px; }
-  .sommario .d { font-size: .8rem; color: var(--secondary-text-color); }
+  .sommario { display: flex; align-items: center; gap: 18px; margin-bottom: 18px; }
+  .sommario .d { display: flex; flex-direction: column; gap: 3px; font-size: .8rem;
+                 color: var(--secondary-text-color); }
+  .sommario .d strong { font-size: 1rem; font-weight: 500; color: var(--primary-text-color); }
   .materia { margin-bottom: 13px; }
   .materia .riga { display: flex; justify-content: space-between; font-size: .88rem;
                    margin-bottom: 5px; gap: 8px; }
@@ -232,6 +240,8 @@ const STILE = `
   .com .data { font-size: .74rem; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
   .com .testo { font-size: .87rem; color: var(--secondary-text-color); margin-top: 7px;
                 white-space: pre-wrap; line-height: 1.45; }
+  .com .testo strong { color: var(--primary-text-color); font-weight: 600; }
+  .com .testo a { color: var(--primary-color); }
   /* niente pre-wrap: è testo scritto dalla card, non contenuto del registro */
   .com .avviso { font-size: .8rem; color: var(--secondary-text-color); margin-top: 7px;
                  line-height: 1.4; opacity: .85; }
@@ -339,7 +349,7 @@ class ClasseVivaCard extends HTMLElement {
     const v = this._config.vista;
     if (v && v !== "combo" && !VISTE.some((x) => x.id === v)) {
       throw new Error(
-        `vista "${v}" non valida: usa medie, voti, bacheca, agenda o combo`
+        `vista "${v}" non valida: usa medie, voti, bacheca, agenda, note, scrutini, compiti o combo`
       );
     }
     this._vista = v && v !== "combo" ? v : null;
@@ -524,6 +534,7 @@ class ClasseVivaCard extends HTMLElement {
       agenda: () => this._vistaAgenda(ent),
       note: () => this._vistaNote(ent),
       scrutini: () => this._vistaScrutini(ent),
+      compiti: () => this._vistaAgenda(ent, true),
     };
     const verso =
       this._direzione > 0 ? "da-destra" : this._direzione < 0 ? "da-sinistra" : "";
@@ -576,7 +587,10 @@ class ClasseVivaCard extends HTMLElement {
         const box = b.closest(".com");
         const testo = box && box.querySelector(".testo");
         if (testo) {
-          testo.textContent = aperto ? testo.dataset.corto : testo.dataset.lungo;
+          if (aperto) testo.textContent = testo.dataset.corto;
+          // data-html è HTML ricostruito da _comunicazioneHtml, non quello del registro
+          else if (testo.dataset.html !== undefined) testo.innerHTML = testo.dataset.html;
+          else testo.textContent = testo.dataset.lungo;
           b.textContent = aperto ? "Leggi tutto" : "Riduci";
         }
       })
@@ -646,7 +660,9 @@ class ClasseVivaCard extends HTMLElement {
           if (testo && box) {
             const div = document.createElement("div");
             div.className = "testo";
-            div.textContent = testo;
+            const ricco = this._comunicazioneHtml(testo);
+            if (ricco) div.innerHTML = ricco.html;
+            else div.textContent = testo;
             box.insertBefore(div, b);
             b.remove();
           } else {
@@ -747,6 +763,35 @@ class ClasseVivaCard extends HTMLElement {
 
   // ----------------------------------------------------------------- medie
 
+  /** Cerchio pieno: la circonferenza fa da righello, l'arco si ferma alla media. */
+  _cerchio(media, valida, d, max) {
+    const n = parseFloat(media);
+    const frazione = valida && !isNaN(n) ? Math.max(0, Math.min(1, n / max)) : 0;
+    const spessore = Math.max(7, d * 0.075);
+    const r = (d - spessore) / 2;
+    const giro = 2 * Math.PI * r;
+    const colore = this._colore(n);
+
+    return `
+      <div class="cerchio" style="width:${d}px;height:${d}px">
+        <svg width="${d}" height="${d}">
+          <circle class="traccia" cx="${d / 2}" cy="${d / 2}" r="${r}"
+                  fill="none" stroke-width="${spessore}"/>
+          <circle class="arco" cx="${d / 2}" cy="${d / 2}" r="${r}" fill="none"
+                  stroke="${colore}" stroke-width="${spessore}" stroke-linecap="round"
+                  stroke-dasharray="${giro}"
+                  stroke-dashoffset="${giro * (1 - frazione)}"
+                  style="--vuoto:${giro}"/>
+        </svg>
+        <div class="dentro">
+          <span class="num" style="font-size:${d * 0.3}px;color:${colore}">${
+      valida ? this._numero(n) : "—"
+    }</span>
+          <span class="eti" style="font-size:${Math.max(9, d * 0.068)}px">media</span>
+        </div>
+      </div>`;
+  }
+
   _vistaMedie(ent) {
     const media = ent.media ? ent.media.state : null;
     const periodi = this._attr(ent.media, "per_periodo", {}) || {};
@@ -765,32 +810,8 @@ class ClasseVivaCard extends HTMLElement {
     const nVoti = (this._attr(ent.voti, "items", []) || []).length;
     const insuff = this._attr(ent.voti, "insufficienze", 0);
 
-    // cerchio pieno: la circonferenza fa da righello, l'arco si ferma alla media
-    const n = parseFloat(media);
-    const frazione = valida && !isNaN(n) ? Math.max(0, Math.min(1, n / max)) : 0;
-    const spessore = Math.max(7, d * 0.075);
-    const r = (d - spessore) / 2;
-    const giro = 2 * Math.PI * r;
-    const colore = this._colore(n);
-
     const cerchio = `
-      <div class="cerchio" style="width:${d}px;height:${d}px">
-        <svg width="${d}" height="${d}">
-          <circle class="traccia" cx="${d / 2}" cy="${d / 2}" r="${r}"
-                  fill="none" stroke-width="${spessore}"/>
-          <circle class="arco" cx="${d / 2}" cy="${d / 2}" r="${r}" fill="none"
-                  stroke="${colore}" stroke-width="${spessore}" stroke-linecap="round"
-                  stroke-dasharray="${giro}"
-                  stroke-dashoffset="${giro * (1 - frazione)}"
-                  style="--vuoto:${giro}"/>
-        </svg>
-        <div class="dentro">
-          <span class="num" style="font-size:${d * 0.3}px;color:${colore}">${
-      valida ? this._numero(n) : "—"
-    }</span>
-          <span class="eti" style="font-size:${Math.max(9, d * 0.068)}px">media</span>
-        </div>
-      </div>
+      ${this._cerchio(media, valida, d, max)}
       ${
         nVoti
           ? `<div class="cerchio-sotto sotto" style="font-size:${Math.max(
@@ -845,12 +866,13 @@ class ClasseVivaCard extends HTMLElement {
 
     const testa = valida
       ? `<div class="sommario">
-           <span class="n" style="color:${this._colore(parseFloat(media))}">${this._esc(
-          media
-        )}</span>
-           <span class="d">Media generale · ${voti.length} voti${
+           ${this._cerchio(media, valida, 100, max)}
+           <div class="d">
+             <strong>Media generale</strong>
+             <span>${voti.length} ${voti.length === 1 ? "voto" : "voti"}${
           insuff ? ` · ${insuff} insufficienze` : ""
         }</span>
+           </div>
          </div>`
       : "";
 
@@ -926,7 +948,8 @@ class ClasseVivaCard extends HTMLElement {
     const riga = (c, i) => {
       const chiave = String(c.pub_id || i);
       const aperto = this._espansi.has(chiave);
-      const testo = c.testo || "";
+      const ricco = this._comunicazioneHtml(c.testo);
+      const testo = ricco ? ricco.piano : c.testo || "";
       const lungo = testo.length > 180 || c.troncato;
       const corto = lungo ? testo.slice(0, 180) + "…" : testo;
       return `<div class="com ${c.letto ? "" : "nuova"}" style="--ritardo:${Math.min(
@@ -943,7 +966,9 @@ class ClasseVivaCard extends HTMLElement {
           testo
             ? `<div class="testo" data-corto="${this._esc(corto)}" data-lungo="${this._esc(
                 testo
-              )}">${this._esc(aperto ? testo : corto)}</div>`
+              )}"${ricco ? ` data-html="${this._esc(ricco.html)}"` : ""}>${
+                aperto && ricco ? ricco.html : this._esc(aperto ? testo : corto)
+              }</div>`
             : ""
         }
         ${
@@ -1063,9 +1088,14 @@ class ClasseVivaCard extends HTMLElement {
 
   // ---------------------------------------------------------------- agenda
 
-  _vistaAgenda(ent) {
-    const items = this._attr(ent.agenda, "items", []) || [];
-    if (!items.length) return `<div class="vuoto">Nessun evento in agenda.</div>`;
+  _vistaAgenda(ent, soloCompiti = false) {
+    const agenda = this._attr(ent.agenda, "items", []) || [];
+    const items = soloCompiti
+      ? agenda.filter((e) => (e.tipo || "").toLowerCase().startsWith("compiti"))
+      : agenda;
+    if (!items.length) {
+      return `<div class="vuoto">${soloCompiti ? "Nessun compito assegnato per questo anno scolastico." : "Nessun evento in agenda."}</div>`;
+    }
 
     const perGiorno = {};
     items.forEach((e) => {
@@ -1185,6 +1215,53 @@ class ClasseVivaCard extends HTMLElement {
       (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
     );
   }
+
+  /**
+   * Alcune comunicazioni arrivano dal registro come HTML non interpretato.
+   * Se il testo comincia con un tag lo si converte in un testo formattato;
+   * gli altri restano com'erano. Ritorna { html, piano } oppure null.
+   *
+   * Il risultato è ricostruito da zero: del codice originale restano solo il
+   * testo (escapato), il grassetto, il corsivo, gli a capo, gli elenchi e i
+   * link http/https. Script, stili, attributi e link javascript: spariscono.
+   */
+  _comunicazioneHtml(testo) {
+    if (!/^\s*<(?:!doctype\b|[a-z][a-z0-9-]*[\s/>])/i.test(String(testo || ""))) return null;
+    const doc = new DOMParser().parseFromString(String(testo), "text/html");
+    doc.querySelectorAll("script, style, template, iframe, object, embed, noscript").forEach((n) => n.remove());
+    const blocchi = new Set(["DIV", "P", "UL", "OL", "LI", "TABLE", "TR", "SECTION",
+      "ARTICLE", "HEADER", "FOOTER", "BLOCKQUOTE", "H1", "H2", "H3", "H4", "H5", "H6"]);
+    const vai = (nodo) => {
+      if (nodo.nodeType === Node.TEXT_NODE) return this._esc(nodo.nodeValue.replace(/\s+/g, " "));
+      if (nodo.nodeType !== Node.ELEMENT_NODE) return "";
+      const tag = nodo.tagName;
+      if (tag === "BR") return "\n";
+      let dentro = [...nodo.childNodes].map(vai).join("");
+      if (tag === "STRONG" || tag === "B" || /^H[1-6]$/.test(tag)) dentro = `<strong>${dentro}</strong>`;
+      else if (tag === "EM" || tag === "I") dentro = `<em>${dentro}</em>`;
+      else if (tag === "LI") dentro = `• ${dentro}`;
+      else if (tag === "A") {
+        const href = nodo.getAttribute("href");
+        if (!href) return dentro;
+        let url = null;
+        try {
+          const u = new URL(href, "https://web.spaggiari.eu/");
+          if (u.protocol === "https:" || u.protocol === "http:") url = u.href;
+          else if (u.protocol !== "mailto:") return "";  // javascript:, data: ... non servono qui
+        } catch (e) {
+          return dentro;
+        }
+        if (url) dentro = `<a href="${this._esc(url)}" target="_blank" rel="noopener noreferrer">${dentro}</a>`;
+      }
+      return blocchi.has(tag) ? `\n${dentro}\n` : dentro;
+    };
+    const html = vai(doc.body)
+      .replace(/[ \t]*\n[ \t]*/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    const piano = new DOMParser().parseFromString(html, "text/html").body.textContent;
+    return html ? { html, piano } : null;
+  }
 }
 
 class ClasseVivaCardEditor extends HTMLElement {
@@ -1243,21 +1320,214 @@ class ClasseVivaCardEditor extends HTMLElement {
   }
 }
 
+// Pagina a schermo intero per il menu laterale (panel_custom): una barra con un
+// pulsante per ogni studente e, sotto, la card dello studente scelto.
+const SENSORE_VOTI = /^sensor\.classeviva_(.+?)(?:_\d{2,4}_\d{2,4})?_voti$/;
+const CHIAVE_STUDENTE = "classeviva-card-panel:studente";
+
+class ClasseVivaCardPanel extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this._hass = null;
+    this._panel = null;
+    this._narrow = false;
+    this._card = null;
+    this._studenti = [];
+    this._nomi = {};
+    this._scelto = null;
+    this._chiaveCard = null;
+  }
+
+  connectedCallback() {
+    if (!this._card) {
+      this.shadowRoot.innerHTML = `
+        <style>
+          :host { display: block; box-sizing: border-box; min-height: 100%;
+                  background: var(--primary-background-color); color: var(--primary-text-color); }
+          .barra { display: flex; align-items: center; gap: 8px; height: var(--header-height, 56px);
+                   padding: 0 12px; box-sizing: border-box; overflow-x: auto; scrollbar-width: none;
+                   background: var(--app-header-background-color, var(--card-background-color));
+                   color: var(--app-header-text-color, var(--primary-text-color));
+                   border-bottom: 1px solid var(--divider-color); }
+          .barra::-webkit-scrollbar { display: none; }
+          .menu { display: none; background: none; border: none; color: inherit; cursor: pointer;
+                  font-size: 1.4rem; line-height: 1; padding: 8px 10px; border-radius: 8px; }
+          .menu:hover { background: var(--secondary-background-color); }
+          :host([narrow]) .menu { display: block; }
+          .studenti { display: flex; gap: 2px; height: 100%; }
+          .studente { position: relative; display: flex; align-items: center; gap: 10px; background: none;
+                      border: none; color: var(--secondary-text-color); cursor: pointer; padding: 0 18px;
+                      font: inherit; font-size: 1rem; white-space: nowrap;
+                      transition: color .22s ease, background .22s ease; }
+          .studente:hover { color: var(--primary-text-color); background: var(--secondary-background-color); }
+          .studente.attivo { color: var(--primary-color); font-weight: 500; }
+          .studente .iniziale { display: inline-flex; align-items: center; justify-content: center;
+                                width: 28px; height: 28px; border-radius: 50%; font-size: .85rem;
+                                font-weight: 600; background: var(--divider-color); color: inherit; }
+          .studente.attivo .iniziale { background: var(--primary-color); color: var(--text-primary-color, #fff); }
+          .studente.attivo::after { content: ""; position: absolute; left: 18px; right: 18px; bottom: 0;
+                                    height: 3px; background: var(--primary-color); border-radius: 3px 3px 0 0; }
+          .contenuto { padding: 16px; box-sizing: border-box; }
+          classeviva-card { display: block; width: 100%; }
+          .vuoto { color: var(--secondary-text-color); font-style: italic; padding: 16px; }
+        </style>
+        <div class="barra">
+          <button class="menu" type="button" aria-label="Menu">☰</button>
+          <div class="studenti" role="tablist"></div>
+        </div>
+        <div class="contenuto"></div>`;
+      this._card = document.createElement("classeviva-card");
+      this.shadowRoot.querySelector(".menu").addEventListener("click", () => {
+        this.dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true }));
+      });
+      this.shadowRoot.querySelector(".studenti").addEventListener("click", (e) => {
+        const pulsante = e.target.closest("[data-studente]");
+        if (pulsante) this._scegli(pulsante.dataset.studente);
+      });
+    }
+    this._aggiorna();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._aggiorna();
+  }
+
+  set panel(panel) {
+    this._panel = panel;
+    this._chiaveCard = null;
+    this._studenti = [];
+    this._aggiorna();
+  }
+
+  set narrow(narrow) {
+    this._narrow = Boolean(narrow);
+    this.toggleAttribute("narrow", this._narrow);
+  }
+
+  get _config() {
+    return (this._panel && this._panel.config) || {};
+  }
+
+  /** Studenti ricavati dai sensori Voti; `studenti` nel config restringe e ordina l'elenco. */
+  _elencaStudenti() {
+    const trovati = new Set();
+    for (const id of Object.keys(this._hass.states)) {
+      const m = SENSORE_VOTI.exec(id);
+      if (m) trovati.add(m[1]);
+    }
+    const scelti = this._config.studenti;
+    this._nomi = {};
+    if (Array.isArray(scelti) && scelti.length) {
+      const voluti = scelti.map((s) => (s && typeof s === "object"
+        ? { account: String(s.account || "").toLowerCase(), nome: s.nome }
+        : { account: String(s).toLowerCase() }));
+      for (const v of voluti) if (v.nome) this._nomi[v.account] = String(v.nome);
+      return voluti.map((v) => v.account).filter((a) => trovati.has(a));
+    }
+    return [...trovati].sort();
+  }
+
+  _etichetta(slug) {
+    if (this._nomi[slug]) return this._nomi[slug];
+    return slug.split("_").map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+  }
+
+  _aggiorna() {
+    if (!this._card || !this._hass) return;
+    const elenco = this._elencaStudenti();
+    if (elenco.join("|") !== this._studenti.join("|")) {
+      this._studenti = elenco;
+      this._disegnaStudenti();
+    }
+    const contenuto = this.shadowRoot.querySelector(".contenuto");
+    if (!elenco.length) {
+      this._chiaveCard = null;
+      contenuto.innerHTML = `<div class="vuoto">Nessuno studente ClasseViva trovato.</div>`;
+      return;
+    }
+    if (!elenco.includes(this._scelto)) {
+      let ricordato = null;
+      try { ricordato = localStorage.getItem(CHIAVE_STUDENTE); } catch (e) { /* storage non disponibile */ }
+      this._scelto = elenco.includes(ricordato) ? ricordato : elenco[0];
+      this._segnaAttivo();
+    }
+    if (!this._card.isConnected) contenuto.replaceChildren(this._card);
+    if (this._chiaveCard !== this._scelto) {
+      const { studenti, ...resto } = this._config;
+      try {
+        this._card.setConfig({
+          ...resto,
+          account: this._scelto,
+          titolo: resto.titolo !== undefined ? resto.titolo : this._etichetta(this._scelto),
+        });
+        this._chiaveCard = this._scelto;
+      } catch (err) {
+        contenuto.innerHTML = `<div class="vuoto"></div>`;
+        contenuto.firstChild.textContent = err.message;
+        this._chiaveCard = null;
+        return;
+      }
+    }
+    this._card.hass = this._hass;
+  }
+
+  _disegnaStudenti() {
+    const contenitore = this.shadowRoot.querySelector(".studenti");
+    contenitore.replaceChildren(...this._studenti.map((slug) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "studente";
+      b.dataset.studente = slug;
+      b.setAttribute("role", "tab");
+      const nome = this._etichetta(slug);
+      const iniziale = document.createElement("span");
+      iniziale.className = "iniziale";
+      iniziale.textContent = nome.charAt(0).toUpperCase();
+      b.append(iniziale, nome);
+      return b;
+    }));
+    this._segnaAttivo();
+  }
+
+  _segnaAttivo() {
+    this.shadowRoot.querySelectorAll(".studente").forEach((b) => {
+      const attivo = b.dataset.studente === this._scelto;
+      b.classList.toggle("attivo", attivo);
+      b.setAttribute("aria-selected", String(attivo));
+    });
+  }
+
+  _scegli(slug) {
+    if (slug === this._scelto) return;
+    this._scelto = slug;
+    try { localStorage.setItem(CHIAVE_STUDENTE, slug); } catch (e) { /* storage non disponibile */ }
+    this._segnaAttivo();
+    this._aggiorna();
+  }
+}
+
 ClasseVivaCard.getConfigElement = () => document.createElement("classeviva-card-editor");
 
-customElements.define("classeviva-card", ClasseVivaCard);
-customElements.define("classeviva-card-editor", ClasseVivaCardEditor);
+// Il file può essere caricato due volte (risorsa della dashboard e pagina nel menu
+// laterale, con URL diversi): gli elementi si definiscono una volta sola.
+if (!customElements.get("classeviva-card")) {
+  customElements.define("classeviva-card", ClasseVivaCard);
+  customElements.define("classeviva-card-editor", ClasseVivaCardEditor);
+  customElements.define("classeviva-card-panel", ClasseVivaCardPanel);
 
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "classeviva-card",
-  name: "ClasseViva",
-  description: "Medie, voti, bacheca e agenda del registro ClasseViva",
-  preview: false,
-});
+  window.customCards = window.customCards || [];
+  window.customCards.push({
+    type: "classeviva-card",
+    name: "ClasseViva",
+    description: "Medie, voti, bacheca, agenda e compiti del registro ClasseViva",
+    preview: false,
+  });
 
-console.info(
-  `%c CLASSEVIVA-CARD %c v${VERSIONE} `,
-  "background:#e53935;color:#fff;font-weight:bold",
-  "background:#333;color:#fff"
-);
+  console.info(
+    `%c CLASSEVIVA-CARD %c v${VERSIONE} `,
+    "background:#e53935;color:#fff;font-weight:bold",
+    "background:#333;color:#fff"
+  );
+}

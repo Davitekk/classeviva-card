@@ -8,7 +8,7 @@
 
 
 Card Lovelace per l'integrazione [ClasseViva Spaggiari][integrazione-url]: Medie, Voti,
-Bacheca, Agenda, Annotazioni e Scrutini in un'unica plancia.
+Bacheca, Agenda, Annotazioni, Scrutini e Compiti in un'unica plancia.
 
 > Richiede l'integrazione [classeviva-ha][integrazione-url] già configurata.
 > Per selezionare l'anno scolastico serve la versione 3.2.0 o successiva.
@@ -18,11 +18,12 @@ Bacheca, Agenda, Annotazioni e Scrutini in un'unica plancia.
 | Scheda | Contenuto |
 |---|---|
 | **Medie** | Media generale in un grafico con quadrimestri |
-| **Voti** | Media e barra per materia, ultimi voti; clic sulla materia per il dettaglio |
-| **Bacheca** | Comunicazioni con testo e allegati, filtro "solo da leggere" |
-| **Agenda** | Compiti e annotazioni raggruppati per giorno |
+| **Voti** | Cerchio con la media generale (scala da 0 a `massimo`), barra per materia, ultimi voti; clic sulla materia per il dettaglio |
+| **Bacheca** | Comunicazioni con testo e allegati, filtro "solo da leggere"; se il testo arriva come HTML viene mostrato formattato (link in una nuova scheda, senza script) |
+| **Agenda** | Eventi e annotazioni raggruppati per giorno |
 | **Annotazioni** | Sottomenù fra annotazioni dei docenti e note disciplinari |
 | **Scrutini** | Pagelle e pagellini pubblicati, scaricabili |
+| **📝 Compiti** | Compiti assegnati, raggruppati per giorno |
 
 Colore continuo dal rosso al verde in base al voto, animazioni di ingresso e un layout che
 si adatta alla larghezza della card.
@@ -42,6 +43,47 @@ repository, categoria **Lovelace** → installa.
    URL corrispondente al percorso dentro `www/` (che si affaccia su `/local/`):
    `/local/community/classeviva/classeviva-card.js`
 
+### Voce nel menu laterale
+
+Per mostrare la card come pagina a schermo intero e aggiungere **ClasseViva**
+al menu laterale, aggiungi questo blocco a `configuration.yaml`:
+
+```yaml
+panel_custom:
+  - name: classeviva-card-panel
+    url_path: classeviva
+    sidebar_title: ClasseViva
+    sidebar_icon: mdi:school
+    module_url: /hacsfiles/classeviva-card/classeviva-card.js?v=2.7.0
+    config:
+      vista: combo
+      anno_scolastico: "26/27"
+      dimensione: 200
+```
+
+Se hai installato la card manualmente, sostituisci `module_url` con lo stesso URL
+che hai registrato nelle risorse della dashboard, ad esempio
+`/local/community/classeviva/classeviva-card.js`. Riavvia Home Assistant dopo aver
+salvato la configurazione. Home Assistant tiene in cache il file per un mese: dopo
+ogni aggiornamento della card cambia il numero dopo `?v=` (e riavvia), altrimenti il
+browser continua a usare la versione vecchia.
+
+In cima alla pagina c'è una riga con una voce per ogni studente configurato
+nell'integrazione (trovati dai sensori Voti), come nelle pagine a più viste; sotto
+compare la card dello studente scelto e la scelta viene ricordata dal browser. Sotto
+`config` valgono le normali opzioni della card, più `studenti`: l'elenco degli account
+da mostrare, nell'ordine indicato. Ogni voce è un account oppure una coppia
+`account` e `nome` per cambiare il nome mostrato:
+
+```yaml
+studenti:
+  - anna
+  - account: luca
+    nome: Lu
+```
+
+Senza `studenti` compaiono tutti, in ordine alfabetico.
+
 ## Uso
 
 ```yaml
@@ -59,7 +101,7 @@ aumentano gli attributi registrati dei sensori.
 
 | Opzione | Valori | Default |
 |---|---|---|
-| `vista` | `medie`, `voti`, `bacheca`, `agenda`, `note`, `scrutini`, `combo` | `combo` |
+| `vista` | `medie`, `voti`, `bacheca`, `agenda`, `note`, `scrutini`, `compiti`, `combo` | `combo` |
 | `account` | parte dell'entity_id, se hai più studenti | — |
 | `anno_scolastico` | anno configurato, ad esempio `"26/27"` | più recente |
 | `titolo` | testo dell'intestazione (`""` per nasconderla) | Nome Studente |
@@ -84,6 +126,15 @@ vista: medie
 layout: verticale
 dimensione: 190
 ```
+
+Per mostrare solo i compiti assegnati:
+
+```yaml
+type: custom:classeviva-card
+vista: compiti
+```
+
+Con `vista: combo`, la scheda **📝 Compiti** appare dopo **Scrutini**.
 
 Per fissare un anno scolastico:
 
