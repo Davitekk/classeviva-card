@@ -43,6 +43,28 @@ repository, categoria **Lovelace** → installa.
    URL corrispondente al percorso dentro `www/` (che si affaccia su `/local/`):
    `/local/community/classeviva/classeviva-card.js`
 
+### Voce nel menu laterale
+
+Per mostrare la card come pagina a schermo intero e aggiungere **ClasseViva Card**
+al menu laterale, aggiungi questo blocco a `configuration.yaml`:
+
+```yaml
+panel_custom:
+  - name: classeviva-card-panel
+    url_path: classeviva-card
+    sidebar_title: ClasseViva Card
+    sidebar_icon: mdi:school
+    module_url: /hacsfiles/classeviva-card/classeviva-card.js
+    config:
+      vista: combo
+```
+
+Se hai installato la card manualmente, sostituisci `module_url` con lo stesso URL
+che hai registrato nelle risorse della dashboard, ad esempio
+`/local/community/classeviva/classeviva-card.js`. Riavvia Home Assistant dopo aver
+salvato la configurazione. La voce apre il wrapper incluso nello stesso file JavaScript
+e riusa la card esistente; puoi impostare le normali opzioni della card sotto `config`.
+
 ## Uso
 
 ```yaml

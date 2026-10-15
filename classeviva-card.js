@@ -1250,10 +1250,55 @@ class ClasseVivaCardEditor extends HTMLElement {
   }
 }
 
+class ClasseVivaCardPanel extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this._hass = null;
+    this._panel = null;
+    this._card = null;
+    this._configApplicata = null;
+  }
+
+  connectedCallback() {
+    if (!this._card) {
+      const style = document.createElement("style");
+      style.textContent = `
+        :host { display: block; box-sizing: border-box; width: 100%; padding: 16px; }
+        classeviva-card { display: block; }
+      `;
+      this._card = document.createElement("classeviva-card");
+      this.shadowRoot.replaceChildren(style, this._card);
+    }
+    this._applicaConfig();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._card) this._card.hass = hass;
+  }
+
+  set panel(panel) {
+    this._panel = panel;
+    this._applicaConfig();
+  }
+
+  _applicaConfig() {
+    if (!this._card) return;
+    const config = this._panel?.config || {};
+    if (config !== this._configApplicata) {
+      this._card.setConfig(config);
+      this._configApplicata = config;
+      if (this._hass) this._card.hass = this._hass;
+    }
+  }
+}
+
 ClasseVivaCard.getConfigElement = () => document.createElement("classeviva-card-editor");
 
 customElements.define("classeviva-card", ClasseVivaCard);
 customElements.define("classeviva-card-editor", ClasseVivaCardEditor);
+customElements.define("classeviva-card-panel", ClasseVivaCardPanel);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
