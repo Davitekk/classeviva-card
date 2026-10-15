@@ -32,7 +32,7 @@
 
 // Alza questo numero a ogni modifica: compare nella console del browser e
 // serve a capire al volo se la pagina sta usando il file nuovo o quello in cache.
-const VERSIONE = "2.6.0";
+const VERSIONE = "2.6.1";
 
 const VISTE = [
   { id: "medie", nome: "Medie", icona: "◎" },
@@ -1438,20 +1438,24 @@ class ClasseVivaCardPanel extends HTMLElement {
 
 ClasseVivaCard.getConfigElement = () => document.createElement("classeviva-card-editor");
 
-customElements.define("classeviva-card", ClasseVivaCard);
-customElements.define("classeviva-card-editor", ClasseVivaCardEditor);
-customElements.define("classeviva-card-panel", ClasseVivaCardPanel);
+// Il file può essere caricato due volte (risorsa della dashboard e pagina nel menu
+// laterale, con URL diversi): gli elementi si definiscono una volta sola.
+if (!customElements.get("classeviva-card")) {
+  customElements.define("classeviva-card", ClasseVivaCard);
+  customElements.define("classeviva-card-editor", ClasseVivaCardEditor);
+  customElements.define("classeviva-card-panel", ClasseVivaCardPanel);
 
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "classeviva-card",
-  name: "ClasseViva",
-  description: "Medie, voti, bacheca, agenda e compiti del registro ClasseViva",
-  preview: false,
-});
+  window.customCards = window.customCards || [];
+  window.customCards.push({
+    type: "classeviva-card",
+    name: "ClasseViva",
+    description: "Medie, voti, bacheca, agenda e compiti del registro ClasseViva",
+    preview: false,
+  });
 
-console.info(
-  `%c CLASSEVIVA-CARD %c v${VERSIONE} `,
-  "background:#e53935;color:#fff;font-weight:bold",
-  "background:#333;color:#fff"
-);
+  console.info(
+    `%c CLASSEVIVA-CARD %c v${VERSIONE} `,
+    "background:#e53935;color:#fff;font-weight:bold",
+    "background:#333;color:#fff"
+  );
+}
