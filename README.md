@@ -18,7 +18,7 @@ Bacheca, Agenda, Annotazioni, Scrutini e Compiti in un'unica plancia.
 | Scheda | Contenuto |
 |---|---|
 | **Medie** | Media generale in un grafico con quadrimestri |
-| **Voti** | Media e barra per materia, ultimi voti; clic sulla materia per il dettaglio |
+| **Voti** | Cerchio con la media generale (scala da 0 a `massimo`), barra per materia, ultimi voti; clic sulla materia per il dettaglio |
 | **Bacheca** | Comunicazioni con testo e allegati, filtro "solo da leggere" |
 | **Agenda** | Eventi e annotazioni raggruppati per giorno |
 | **Annotazioni** | Sottomenù fra annotazioni dei docenti e note disciplinari |
@@ -45,25 +45,32 @@ repository, categoria **Lovelace** → installa.
 
 ### Voce nel menu laterale
 
-Per mostrare la card come pagina a schermo intero e aggiungere **ClasseViva Card**
+Per mostrare la card come pagina a schermo intero e aggiungere **ClasseViva**
 al menu laterale, aggiungi questo blocco a `configuration.yaml`:
 
 ```yaml
 panel_custom:
   - name: classeviva-card-panel
-    url_path: classeviva-card
-    sidebar_title: ClasseViva Card
+    url_path: classeviva
+    sidebar_title: ClasseViva
     sidebar_icon: mdi:school
     module_url: /hacsfiles/classeviva-card/classeviva-card.js
     config:
       vista: combo
+      anno_scolastico: "26/27"
+      dimensione: 200
 ```
 
 Se hai installato la card manualmente, sostituisci `module_url` con lo stesso URL
 che hai registrato nelle risorse della dashboard, ad esempio
 `/local/community/classeviva/classeviva-card.js`. Riavvia Home Assistant dopo aver
-salvato la configurazione. La voce apre il wrapper incluso nello stesso file JavaScript
-e riusa la card esistente; puoi impostare le normali opzioni della card sotto `config`.
+salvato la configurazione.
+
+La pagina ha in alto un pulsante per ogni studente configurato nell'integrazione
+(trovati dai sensori Voti) e sotto la card dello studente scelto; la scelta viene
+ricordata dal browser. Sotto `config` valgono le normali opzioni della card, più
+`studenti`: l'elenco degli account da mostrare, nell'ordine indicato (per esempio
+`studenti: [veronica, matteo]`). Senza `studenti` compaiono tutti, in ordine alfabetico.
 
 ## Uso
 
