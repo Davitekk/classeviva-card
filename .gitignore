@@ -7,3 +7,7 @@ secrets.yaml
 # sistema
 .DS_Store
 Thumbs.db
+
+# strumenti locali dell assistente: non vanno nel repo
+.claude/
+CLAUDE.md
